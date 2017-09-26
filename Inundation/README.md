@@ -15,14 +15,14 @@ of time a cell with a specific elevation x was tidally inundated. We used the â€
 Development Team 2017) to parameterize a generalized logistic decay function using a maximum likelihood estimation procedure 
 on normally-distributed elevation data:  
 
-![Equation I](https://raw.github.com/davismj87/Dissertation_Chapter1/Inundation/Equation1.png) 
+![equation1](https://user-images.githubusercontent.com/25207964/30882735-ce1dc414-a2be-11e7-8825-f1aa680b0221.PNG) 
   
 The function had a lower asymptote (A) of 0 and an upper asymptote (K) of 1 to limit inundation to proportional values. 
 To model change in I_x with MTL, we quantified changes in parameters B, v, and Q as MTL increased from 1.4 to 2.5, 
 reflecting projected sea-level rise (SLR) estimates of up to a meter or more over the coming decades. This was best reflected in an 
 exponential relationship with parameter Q:  
 
-![Equation Q](/relative/path/to/img.jpg?raw=true "Equation Q") 
+![equation2](https://user-images.githubusercontent.com/25207964/30882738-d04bd5aa-a2be-11e7-907d-822753f3bed0.PNG)
 
 where A_mtl and B_mtl define change in Q with increasing MTL.  
 
