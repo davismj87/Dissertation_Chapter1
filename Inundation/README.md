@@ -1,4 +1,4 @@
-# **Inundation Duration**
+# Inundation Duration
 
 This folder contains raw data and code for modelling inundation duration by elevation (m NAVD88).
 
@@ -15,14 +15,14 @@ of time a cell with a specific elevation x was tidally inundated. We used the â€
 Development Team 2017) to parameterize a generalized logistic decay function using a maximum likelihood estimation procedure 
 on normally-distributed elevation data:  
 
-![Equation I](/relative/path/to/img.jpg?raw=true "Optional Title") 
+![Equation I](https://raw.github.com/davismj87/Dissertation_Chapter1/Inundation/Equation1.png) 
   
 The function had a lower asymptote (A) of 0 and an upper asymptote (K) of 1 to limit inundation to proportional values. 
 To model change in I_x with MTL, we quantified changes in parameters B, v, and Q as MTL increased from 1.4 to 2.5, 
 reflecting projected sea-level rise (SLR) estimates of up to a meter or more over the coming decades. This was best reflected in an 
 exponential relationship with parameter Q:  
 
-![Equation Q](/relative/path/to/img.jpg?raw=true "Optional Title") 
+![Equation Q](/relative/path/to/img.jpg?raw=true "Equation Q") 
 
 where A_mtl and B_mtl define change in Q with increasing MTL.  
 
