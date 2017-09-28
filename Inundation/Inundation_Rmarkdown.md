@@ -82,7 +82,8 @@ Model Parameterization
 
 We will use non-linear least squares (nls function) to parameterize a generalized logistic function. Because we are also interested in evaluating the fit of the curve for multiple tidal levels, the parameter *Q* is re-worked as an exponential function of MTL. The final equation looks like:
 
-1/(1 + *Q**e*<sup>−*B**E**l**e**v*</sup>)<sup>1/*v*</sup>
+1/(1 + *Qe*<sup>−*B**E**l**e**v*</sup>)<sup>1/*v*</sup>  
+
 where *Q* = *a*<sub>*M**T**L*</sub>*e*<sup>*b*<sub>*M**T**L*</sub>*M**T**L*</sup>
 
 The function 'nlsBoot' gives us confidence intervals for our parameter values.
