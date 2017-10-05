@@ -32,3 +32,4 @@ where A_mtl and B_mtl define change in Q with increasing MTL.
 Inundation_Params.R - Code for parameterizing inundation model  
 Inundation_Rmarkdown.md - R markdown tutorial showing how to run code and model output  
 Inundation_Rmarkdown_files - folder containing output figures for R markdown document  
+Inundation-app - folder containing R code and a .csv data file for a Shiny app
