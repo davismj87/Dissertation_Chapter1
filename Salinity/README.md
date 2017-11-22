@@ -29,3 +29,8 @@ For non-linear relationships, we used an exponential decay function to produce a
   
 This was most relevant with respect to distance from the river (or ratio of river distance to delta distance), which exhibited 
 a distinct positive correlative relationship with an upper asymptote.
+  
+*Files*:  
+SPS_Params.R - Code for parameterizing soil pore salinity model  
+SPS_Rmarkdown.md - R markdown tutorial showing how to run code and model output  
+SPS_Rmarkdown_files - folder containing output figures for R markdown document  
