@@ -1,0 +1,265 @@
+---
+title: 'Modeling Vegetation Stem Density from Emprical Data'
+author: "Melanie Davis"  
+date: "November 27, 2017"  
+output:
+ github_document
+---
+
+```{r include=FALSE}
+	rm(list = ls())
+	library(ggplot2)
+	library(bbmle)
+	library(nlstools)
+	library(propagate)
+	Veg=read.csv("E:\\UW PHD\\Dissertation\\Chapter_1\\CH1_Data\\CH1_Vegetation.csv")
+```
+
+##Data Preparation
+  
+The data input is a file containing stem density values for five years of vegetation surveys.
+Column 1 (ID) is sample ID including year, month, site, and transect, Column 2 (Density) is 
+the stem density of the 0.5 x 0.5 m quadrat, Column 3 (Chan_Dist_m) is the distance from 
+the edge of the nearest channel in meters, Column 4 (Elev_m) is the quadrat elevation in meters NAVD88,
+Column 5 (Salinity) is the measured soil pore salinity at the quadrat.
+  
+```{r, echo=FALSE}
+	head(Veg)
+```
+  
+First we need to calcualte inundation duration using the elevation measurements. Inundation duration 
+is the proportion of time each cell of elevation x meters will be covered by the tide.  
+  
+```{r}
+Veg$Inundation = 1/(1 + (0.033*exp(-0.9*1.34))*exp(0.9*Veg$Elev_m))^(1/0.06)
+plot(Veg$Elev_m, Veg$Inundation, pch=19)
+```   
+  
+Now we look at the distribution of the stem density data and run some preliminary plots.
+
+```{r, echo=FALSE}
+	hist(Veg$Density)
+	hist(log(Veg$Density + 1))
+	hist(sqrt(Veg$Density))
+```
+  
+The data are zero-skewed poisson (count) data. Log-transforming or square root transformation helps,
+except for zero-skewness.
+  
+```{r, echo=FALSE}
+	plot(Veg$Inundation, Veg$Density)
+	abline(lm(Veg$Density~Veg$Inundation))
+```
+
+Stem density appears to follow a gaussian function with respect to inundation
+
+```{r, echo=FALSE}
+	plot(Veg$Salinity, Veg$Density)
+	abline(lm(Veg$Density~Veg$Salinity))
+```
+  
+Stem density appears to decrease with increasing salinity.  
+
+
+```{r, echo=FALSE}
+	plot(Veg$Chan_Dist_m, Veg$Density)
+	abline(lm(Veg$Density~Veg$Chan_Dist_m))
+```
+  
+There doesn't appear to be a realtionship between stem density and distance to channel edge.  
+  
+Now that we have evaluated the relationship between soil pore salinity and inundation duration, we can
+run the model parameterization and selection procedure.
+  
+##Model Parameterization
+
+First let's run some linear models to parse out significant drivers. 
+  
+```{r, warning=FALSE}
+	VEGlm1 = lm(Density ~ Inundation, data=Veg)
+	VEGlm2 = lm(Density ~ Salinity, data=Veg)
+	VEGlm3 = lm(Density ~ Inundation + Salinity, data=Veg)
+	VEGlm4 = lm(Density ~ Inundation*Salinity, data=Veg)
+	VEGlm5 = lm(log(Density+1) ~ Inundation, data=Veg)
+	VEGlm6 = lm(log(Density+1) ~ Salinity, data=Veg)
+	VEGlm7 = lm(log(Density+1) ~ Inundation + Salinity, data=Veg)
+	VEGlm8 = lm(log(Density+1) ~ Inundation*Salinity, data=Veg)
+	VEGlm9 = lm(sqrt(Density) ~ Inundation, data=Veg)
+	VEGlm10 = lm(sqrt(Density) ~ Salinity, data=Veg)
+	VEGlm11 = lm(sqrt(Density) ~ Inundation + Salinity, data=Veg)
+	VEGlm12 = lm(sqrt(Density) ~ Inundation*Salinity, data=Veg)
+	
+	AIC(VEGlm1,VEGlm2,VEGlm3,VEGlm4,VEGlm5,VEGlm6,VEGlm7,VEGlm8,VEGlm9,VEGlm10,VEGlm11,VEGlm12)
+	as.array(c(sigma(VEGlm1),sigma(VEGlm2),sigma(VEGlm3),sigma(VEGlm4),sigma(VEGlm5),
+		sigma(VEGlm6),sigma(VEGlm7),sigma(VEGlm8)))
+
+summary(VEGlm7)
+```
+  
+The additive model of Inundation and Salinity appears to be the best-fit model, although salinity is not significant.
+  
+As we observed above, the relationship between stem density and inundation duration appeared to be Gaussian, with
+lower stem densities at the longest and shortest inundation durations. The Gaussian function is:
+  
+$V_x = \alpha e^{\frac{-(I_x-\beta)^2}{2\gamma^2}}$ 
+  
+where $$\alpha = \frac{1}{sd}\sqrt{\frac{2}{\pi}}$$ $$\beta = mean$$ and $$\gamma = sd$$  
+  
+Stem density also appears to decline with increasing salinity, and because this relationship must have
+a lower asymptote, an exponential decay function may serve as the best representation. 
+  
+$V_x = Ne^{-\lambda S_x}$ 
+  
+We can apply this equation to the Inundation and Salinity variables using the "nls" function.
+
+```{r}
+VEG_func1 = function(alpha, beta, gamma){
+Stems = alpha*exp((-(Veg$Inundation - beta)^2)/(2*(gamma^2)))
+}
+
+VEGmle1=nls(Density ~ alpha*exp((-(Inundation - beta)^2)/(2*(gamma^2))), 
+data=Veg, 
+start = list(alpha=100, beta=0.15, gamma=0.2),
+lower=c(0, 0, 0),
+upper=c(10000, 1, 1),
+algorithm="port")
+summary(VEGmle1)
+AIC(VEGlm1, VEGmle1)
+sigma(VEGmle1)
+```
+  
+As you can see, the Gaussian model offers a much better fit. We can run a model selection procedure 
+using multiple, interactive combinations of the above-tested variables:
+
+```{r, echo=FALSE, warning=FALSE}
+VEGmle2=nls(Density ~ s1 + s2*Salinity + alpha*exp((-(Inundation - beta)^2)/(2*(gamma^2))), 
+data=Veg, 
+start = list(s1 = 0, s2 = 2, alpha=100, beta=0.15, gamma=0.2),
+lower=c(-100, 0, 0, 0, 0),
+upper=c(100, 1000, 10000, 1, 1),
+algorithm="port")
+summary(VEGmle2)
+
+		VEGmle3=nls(Density ~ (alpha*exp((-(Inundation - beta)^2)/(2*(gamma^2)))) + (s1*Salinity*exp((-(Inundation - beta)^2)/(2*(gamma^2)))), 
+			data=Veg, 
+			start = list(alpha = 5, s1 = 1, beta=0.15, gamma=0.2),
+			lower=c(0, 0, 0, 0),
+			upper=c(10000, 100, 1, 1),
+			algorithm="port")
+		summary(VEGmle3)
+
+		VEGmle4=nls(Density ~ alpha*Salinity*exp((-(Inundation - beta)^2)/(2*(gamma^2))), 
+			data=Veg, 
+			start = list(alpha = 10, beta=0.15, gamma=0.2),
+			lower=c(0, 0, 0),
+			upper=c(1000, 1, 1),
+			algorithm="port")
+		summary(VEGmle4)
+
+		VEGmle5=nls(sqrt(Density) ~ alpha*exp((-(Inundation - beta)^2)/(2*(gamma^2))), 
+			data=Veg, 
+			start = list(alpha=10, beta=0.15, gamma=0.2),
+			lower=c(0, 0, 0),
+			upper=c(10000, 1, 1),
+			algorithm="port")
+		summary(VEGmle5)
+
+		VEGmle6=nls(sqrt(Density) ~ s1 + s2*Salinity + alpha*exp((-(Inundation - beta)^2)/(2*(gamma^2))), 
+			data=Veg, 
+			start = list(s1 = 0, s2 = 2, alpha=100, beta=0.15, gamma=0.2),
+			lower=c(-100, 0, 0, 0, 0),
+			upper=c(100, 1000, 10000, 1, 1),
+			algorithm="port")
+		summary(VEGmle6)
+
+		VEGmle7=nls(sqrt(Density) ~ (alpha*exp((-(Inundation - beta)^2)/(2*(gamma^2)))) + (s1*Salinity*exp((-(Inundation - beta)^2)/(2*(gamma^2)))), 
+			data=Veg, 
+			start = list(alpha = 5, s1 = 1, beta=0.15, gamma=0.2),
+			lower=c(0, 0, 0, 0),
+			upper=c(500, 100, 1, 1),
+			algorithm="port")
+		summary(VEGmle7)
+
+		VEGmle8=nls(sqrt(Density) ~ alpha*Salinity*exp((-(Inundation - beta)^2)/(2*(gamma^2))), 
+			data=Veg, 
+			start = list(alpha = 10, beta=0.15, gamma=0.2),
+			lower=c(0, 0, 0),
+			upper=c(1000, 1, 1),
+			algorithm="port")
+		summary(VEGmle8)
+
+		VEGmle9=nls(Density ~ N*exp(-lambda*Salinity), 
+			data=Veg, 
+			start = list(N = 3000, lambda=0),
+			lower=c(0, -5),
+			upper=c(10000, 5),
+			algorithm="port")
+		summary(VEGmle9)
+
+		VEGmle10=nls(Density ~ N*exp(-lambda*Salinity) + alpha*exp((-(Inundation - beta)^2)/(2*(gamma^2))), 
+			data=Veg, 
+			start = list(N = 3000, lambda=0, alpha=100, beta=0.12, gamma=0.11),
+			lower=c(0, -5, 0, 0, 0),
+			upper=c(10000, 5, 10000, 100, 100),
+			algorithm="port")
+		summary(VEGmle10)
+
+		VEGmle11=nls(Density ~ N*exp(-lambda*Salinity)*exp((-(Inundation - beta)^2)/(2*(gamma^2))), 
+			data=Veg, 
+			start = list(N = 3000, lambda=0, beta=0.12, gamma=0.11),
+			lower=c(0, -5, 0, 0),
+			upper=c(10000, 5, 100, 100),
+			algorithm="port")
+		summary(VEGmle11)
+
+		VEGmle12=nls(Density ~ alpha*exp((-(Salinity - beta)^2)/(2*(gamma^2))), 
+			data=Veg, 
+			start = list(alpha = 100, beta=3, gamma=3),
+			lower=c(0, 0, 0),
+			upper=c(10000, 1000, 1000),
+			algorithm="port")
+		summary(VEGmle12)
+
+		VEGmle13=nls(Density ~ alpha*exp((-(Salinity - beta_s)^2)/(2*(gamma_s^2)))*exp((-(Inundation - beta_i)^2)/(2*(gamma_i^2))), 
+			data=Veg, 
+			start = list(alpha = 100, beta_s=3, gamma_s=3, beta_i=0.1, gamma_i=0.1),
+			lower=c(0, 0, 0, 0, 0),
+			upper=c(10000, 1000, 1000, 100, 100),
+			algorithm="port")
+		summary(VEGmle13)
+
+AIC(VEGmle1,VEGmle2,VEGmle3,VEGmle4,VEGmle5,VEGmle6,VEGmle7,VEGmle8,VEGmle9,VEGmle10,VEGmle11,VEGmle12,VEGmle13)
+```
+The best-fit model here is the interactive model between Inundation Duration (Gaussian) and Soil Pore Salinity
+(Exp Decay).
+  
+The modeled output looks like this:  
+
+```{r include=FALSE}
+Inundation_test = seq(0,0.75,0.005)
+Salinity_test = array(mean(Veg$Salinity, na.rm=TRUE),length(Inundation_test))
+newdat=as.data.frame(cbind(Inundation_test, Salinity_test))
+colnames(newdat) = c("Inundation","Salinity")
+
+MLE_pred = predictNLS(VEGmle11, newdata=data.frame(Salinity=20, Inundation=Inundation_test), interval="prediction", alpha=0.05)
+	MLE_pred_out=as.data.frame(MLE_pred[1])
+	head(MLE_pred_out)
+
+	SubVEG = subset(Veg, !Salinity > 30)
+	SubVEG = subset(SubVEG, !Salinity < 10)	
+``` 
+```{r echo=FALSE}
+ggplot() +
+	geom_area(aes(x=Inundation_test, y=(MLE_pred_out$summary.Sim.97.5.)), fill="lightgray") +
+	geom_area(aes(x=Inundation_test, y=(MLE_pred_out$summary.Sim.2.5.)), fill="white") +
+	geom_line(aes(x=Inundation_test, y=(MLE_pred_out$summary.Sim.Mean)), lwd=1.5) +
+	geom_point(aes(x=Veg$Inundation, y=Veg$Density), pch=19, col="black") +
+	geom_point(aes(x=SubVEG$Inundation, y=SubVEG$Density), pch=19, col="red") +
+	scale_x_continuous(limits=c(0,0.75)) +
+	scale_y_continuous(limits=c(0,4000)) +
+	xlab("Inundation Duration (%)") +
+	ylab("Stem Density (m-2)") +
+	ggtitle("Salinity = 20 PSU") +
+	theme_classic()+
+	theme(plot.title = element_text(hjust = 0.5))
+```
